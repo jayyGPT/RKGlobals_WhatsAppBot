@@ -18,13 +18,15 @@ app.get('/webhook', (req, res) => {
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode && token === VERIFY_TOKEN) {
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log("✅ Webhook verified!");
     res.status(200).send(challenge);
   } else {
+    console.log("❌ Webhook verification failed");
     res.sendStatus(403);
   }
 });
+
 
 // WhatsApp Message Receiver
 app.post('/webhook', (req, res) => {
