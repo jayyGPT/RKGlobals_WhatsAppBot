@@ -31,15 +31,11 @@ app.get('/webhook', (req, res) => {
 // WhatsApp Message Receiver
 app.post('/webhook', (req, res) => {
   const body = req.body;
+  console.log("📥 Incoming webhook:", JSON.stringify(body, null, 2)); // 🔍 LOG THIS
 
   if (body.object) {
-    if (
-      body.entry &&
-      body.entry[0].changes &&
-      body.entry[0].changes[0].value.messages &&
-      body.entry[0].changes[0].value.messages[0]
-    ) {
-      const message = body.entry[0].changes[0].value.messages[0];
+    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (message) {
       const sender = message.from;
       const text = message.text?.body;
 
@@ -54,6 +50,7 @@ app.post('/webhook', (req, res) => {
     res.sendStatus(404);
   }
 });
+
 
 // Helper function to send a WhatsApp message
 const axios = require('axios');
