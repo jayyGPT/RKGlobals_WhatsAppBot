@@ -1,18 +1,21 @@
-// index.js
-
 const express = require('express');
 const bodyParser = require('body-parser');
-require('dotenv').config(); // Loads variables from .env
+require('dotenv').config();
+const axios = require('axios');
+const { google } = require('googleapis');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
+const SHEET_ID = '1ewXpk13b-ZQw4EgtOZ82ik-ivwKbT18wFf68cwh685I';
 
 app.use(bodyParser.json());
 
-// Meta Webhook Verification Route
+const userSessions = {};
+
+// Webhook verification
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -27,22 +30,18 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-
-// WhatsApp Message Receiver
-app.post('/webhook', (req, res) => {
+// Main webhook for WhatsApp messages
+app.post('/webhook', async (req, res) => {
   const body = req.body;
-  console.log("📥 Incoming webhook:", JSON.stringify(body, null, 2)); // 🔍 LOG THIS
 
   if (body.object) {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (message) {
-      const sender = message.from;
-      const text = message.text?.body;
+    const sender = message?.from;
+    const text = message?.text?.body?.trim();
 
-      console.log("📩 Message received:", text);
-
-      // Here you can call your KYC logic
-      sendMessage(sender, "Welcome to RK Globals! Please start KYC by sending your PAN.");
+    if (sender && text) {
+      console.log(`📩 Message from ${sender}: ${text}`);
+      await handleMessage(sender, text);
     }
 
     res.sendStatus(200);
@@ -51,11 +50,40 @@ app.post('/webhook', (req, res) => {
   }
 });
 
+// Handle message logic
+async function handleMessage(sender, text) {
+  if (!userSessions[sender]) {
+    userSessions[sender] = { step: 0, data: [] };
+    return sendMessage(sender, "Welcome to RK Globals! Please enter your *PAN Number*:");
+  }
 
-// Helper function to send a WhatsApp message
-const axios = require('axios');
+  const session = userSessions[sender];
+
+  if (session.step === 0) {
+    session.data[0] = text.toUpperCase();
+    session.step++;
+    return sendMessage(sender, "✅ PAN received.\nNow enter your *Aadhar Number*:");
+  }
+
+  if (session.step === 1) {
+    session.data[1] = text;
+    session.step++;
+    return sendMessage(sender, "✅ Aadhar received.\nPlease enter your *Date of Birth* (YYYY-MM-DD):");
+  }
+
+  if (session.step === 2) {
+    session.data[2] = text;
+    session.step++;
+    session.data.unshift(sender); // Add phone number at start
+    await addToGoogleSheet(session.data);
+    delete userSessions[sender];
+    return sendMessage(sender, "🎉 KYC complete! Thank you for registering with RK Globals.");
+  }
+}
+
+// Send WhatsApp message
 function sendMessage(to, message) {
-  axios.post(
+  return axios.post(
     'https://graph.facebook.com/v19.0/742259758960108/messages',
     {
       messaging_product: "whatsapp",
@@ -68,14 +96,35 @@ function sendMessage(to, message) {
         'Content-Type': 'application/json',
       },
     }
-  ).then(response => {
+  ).then(() => {
     console.log("📤 Message sent");
   }).catch(err => {
     console.error("❌ Error sending message:", err.response?.data || err.message);
   });
 }
 
-// Start the server
+// Add row to Google Sheets
+async function addToGoogleSheet(data) {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: path.join(__dirname, 'credentials.json'),
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+
+  const sheets = google.sheets({ version: 'v4', auth: await auth.getClient() });
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: 'Sheet1!A:D',
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [data], // [phone, PAN, Aadhar, DOB]
+    },
+  });
+
+  console.log("✅ KYC data stored in Google Sheets");
+}
+
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Webhook server running at http://localhost:${PORT}`);
 });
