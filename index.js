@@ -59,7 +59,7 @@ app.post('/webhook', (req, res) => {
 const axios = require('axios');
 function sendMessage(to, message) {
   axios.post(
-    'https://graph.facebook.com/v19.0/YOUR_PHONE_NUMBER_ID/messages',
+    'https://graph.facebook.com/v19.0/742259758960108/messages',
     {
       messaging_product: "whatsapp",
       to,
