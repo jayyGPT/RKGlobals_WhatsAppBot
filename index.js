@@ -106,7 +106,7 @@ function sendMessage(to, message) {
 // Add row to Google Sheets
 async function addToGoogleSheet(data) {
   const auth = new google.auth.GoogleAuth({
-    keyFile: path.join(__dirname, 'credentials.json'),
+    keyFile: path.join(__dirname, 'plucky-point-463112-a3-b59e8eed2939.json'),
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
 
