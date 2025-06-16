@@ -106,9 +106,10 @@ function sendMessage(to, message) {
 // Add row to Google Sheets
 async function addToGoogleSheet(data) {
   const auth = new google.auth.GoogleAuth({
-    keyFile: path.join(__dirname, 'plucky-point-463112-a3-b59e8eed2939.json'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+});
+
 
   const sheets = google.sheets({ version: 'v4', auth: await auth.getClient() });
 
